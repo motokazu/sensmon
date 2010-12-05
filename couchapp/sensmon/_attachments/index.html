@@ -7,9 +7,9 @@
   <body>
     <h1>Graph Sensmon.</h1>
     <hr/>
-<div id="placeholder" style="width:700px;height:300px;"></div> 
+<div id="placeholder" style="width:800px;height:300px;"></div> 
     
-Overview: <div id="overview" style="margin-left:40px;margin-top:20px;width:300px;height:50px"></div> 
+Overview: <div id="overview" style="margin-left:40px;margin-top:20px;width:400px;height:50px"></div> 
 	<hr>
   </body>
   <script src="/_utils/script/json2.js"></script>
@@ -77,14 +77,16 @@ $(function () {
 			
 			var plot = $.plot($("#placeholder"), datasets , options);
 
-		    var overview = $.plot($("#overview"), [tempd,solard] , {
+			var overviewdata = [];
+			overviewdata.push({data:tempd, yaxis: 1},{data:solard, yaxis: 2});
+		    var overview = $.plot($("#overview"), overviewdata , {
 		        series: {
 		            lines: { show: true, lineWidth: 1 },
 		            shadowSize: 0
 		        },
 		        xaxis: { ticks: [], mode: "time" },
 		        yaxis: { ticks: [], min: 0, autoscaleMargin: 0.1 },
-		        yaxis: { ticks: [], min: 0, autoscaleMargin: 0.1 },
+		        y2axis: { ticks: [], min: 0, autoscaleMargin: 0.1 },
 		        selection: { mode: "x" }
 		    });
 
@@ -106,8 +108,6 @@ $(function () {
 		
 		}
 	});
-
-
 });
 </script> 
 
