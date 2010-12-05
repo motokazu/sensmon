@@ -24,15 +24,21 @@ byte server[] = { 192, 168, 0, 80 }; // sheevabian
 
 byte SNTP_server_IP[] = { 130, 69, 251, 23 }; // Tokyo-univ NTP
 time_t prevDisplay = 0; // when the digital clock was displayed
-const  long timeZoneOffset = -32400; // set JST. set this to the offset in seconds to your local time;
+const long timeZoneOffset = -32400; // set JST. set this to the offset in seconds to your local time;
+
+/*
+ * setup pins
+ */
+const int solarPin = 5;
+const int tempPin  = 2;
 
 void setup()
 {
   Ethernet.begin(mac, ip, gw, subnet);
   Serial.begin(9600);
-  
+
   delay(1000);
-  
+
   Serial.println("Startup Sensmon. let's relax arduino.");
   Serial.println("waiting for sync NTP");
   setSyncProvider(getNtpTime);
@@ -45,21 +51,21 @@ boolean post()
   char json[256];
   char q = '"';
   char clength[30];
-  char timestr[20];
-  
-  int sensorValue = analogRead(0);
-  // reverse sens data
-  sensorValue = 1024 - sensorValue;
-  
-  sprintf(timestr,"%04d/%02d/%02d %02d:%02d:%02d",year(),month(),day(),hour(),minute(),second());
-  Serial.println(timestr);
-  
-  sprintf(json,"{%cstime%c:%c%s%c, %cvalue%c:%d}",q,q,q,timestr,q,q,q,sensorValue);
+
+  int solarValue = analogRead(solarPin);
+  int tempValue  = analogRead(tempPin);
+
+  int temperature = map(tempValue, 0, 327, 0, 160) - 60;
+  float solarpower = (solarValue * 4.88) / 1024; // 4.88 = 5000/1024
+  int solarpower1  = (solarpower - (int)solarpower) * 100;
+
+  sprintf(json,"{%cstime%c: %ld, %csolarpower%c: %0d.%d, %ctemperature%c: %d}",
+    q,q,now(), q,q,(int)solarpower,solarpower1, q,q,temperature);
   Serial.println(json);
-  
+
   Client client(server, 5984); // connect couchdb
   Serial.println("connecting couchdb...");
-  
+
   if(client.connect()){
     Serial.println("connected");
     client.println("POST /sensmon HTTP/1.1");
