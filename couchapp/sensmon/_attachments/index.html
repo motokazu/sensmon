@@ -5,44 +5,111 @@
     <link rel="stylesheet" href="style/main.css" type="text/css">
   </head>
   <body>
-    <h1>Graph Sensmon. (dynamic)</h1>
+    <h1>Graph Sensmon.</h1>
     <hr/>
-    <span id="dynsparkline">Loading...</span>
+<div id="placeholder" style="width:700px;height:300px;"></div> 
+    
+Overview: <div id="overview" style="margin-left:40px;margin-top:20px;width:300px;height:50px"></div> 
 	<hr>
-	<b>Last Value: <span id="last_value"></span> (<span id="last_stime"></span>)</b>
   </body>
   <script src="/_utils/script/json2.js"></script>
   <script src="/_utils/script/jquery.js?1.3.1"></script>
   <script src="/_utils/script/jquery.couch.js?0.9.0"></script>
-  <script src="js/jquery.sparkline.min.js"></script>
+  <script src="js/jquery.flot.min.js"></script>
+  <script src="js/jquery.flot.selection.min.js"></script>
 
-<script type="text/javascript" charset="utf-8">
-	$(function(){
-		gview();
-		window.setInterval(function(){
-			gview()}, 1000);
-	});
-	var gview = function(){
-		var series = [];
-		$.ajax({
-			type: 'GET',
-			dataType: 'json',
-			url: "/sensmon/_design/sensmon/_view/all",
-			success: function(data){
-				$.each(data.rows, function(id,val){
-					series.push(parseInt(val.value.value));
-					$("#last_stime").text(val.value.stime);
-					$("#last_value").text(val.value.value);
-				});
-				$("#dynsparkline").sparkline(series,
-					{type:'line',
-					barColor:'green',
-					height:300,
-					width:1000,
-					});
+<script id="source"> 
+$(function () {
+	var tempd = [];
+	var solard = [];
+	
+	var datasets = [];
+	
+	$.ajax({
+		type: 'GET',
+		dataType: 'json',
+		url: "/sensmon/_design/sensmon/_view/all",
+		success: function(data){
+			$.each(data.rows, function(id, val){
+				var tmp = [val.value.stime, val.value.temperature];
+				tempd.push(tmp);
+				var sol = [val.value.stime, val.value.solarpower];
+				solard.push(sol);
+			});
+			
+			// fix from sec to millisec
+			for(var i = 0; i < tempd.length ; i ++ ) {
+				tempd[i][0] = tempd[i][0] * 1000;
+				solard[i][0] = solard[i][0] * 1000;
 			}
-		});
-	};
-</script>
+			
+			datasets.push({"label":"Temperature",data:tempd, yaxis: 1 });
+			datasets.push({"label":"Solarpower",data:solard, yaxis: 2 });
+
+		    // helper for returning the weekends in a period
+		    function weekendAreas(axes) {
+		        var markings = [];
+		        var d = new Date(axes.xaxis.min);
+		        // go to the first Saturday
+		        d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 1) % 7))
+		        d.setUTCSeconds(0);
+		        d.setUTCMinutes(0);
+		        d.setUTCHours(0);
+		        var i = d.getTime();
+		        do {
+		            // when we don't set yaxis, the rectangle automatically
+		            // extends to infinity upwards and downwards
+		            markings.push({ xaxis: { from: i, to: i + 1 * 24 * 60 * 60 * 1000} });
+		            i += 1 * 24 * 60 * 60 * 1000;
+		        } while (i < axes.xaxis.max);
+
+		        return markings;
+		    }
+
+		    var options = {
+		        xaxis: { mode: "time" },
+		        selection: { mode: "x" },
+		        grid: { markings: weekendAreas },
+				yaxis: { min: 0 },
+				y2axis: { min: 0 , tickFormatter: function (v, axis) { return v.toFixed(axis.tickDecimals) +"V" }},
+            	legend: { position: 'sw' }
+		    };
+			
+			var plot = $.plot($("#placeholder"), datasets , options);
+
+		    var overview = $.plot($("#overview"), [tempd,solard] , {
+		        series: {
+		            lines: { show: true, lineWidth: 1 },
+		            shadowSize: 0
+		        },
+		        xaxis: { ticks: [], mode: "time" },
+		        yaxis: { ticks: [], min: 0, autoscaleMargin: 0.1 },
+		        yaxis: { ticks: [], min: 0, autoscaleMargin: 0.1 },
+		        selection: { mode: "x" }
+		    });
+
+		    // now connect the two
+		    $("#placeholder").bind("plotselected", function (event, ranges) {
+		        // do the zooming
+		        plot = $.plot($("#placeholder"), datasets,
+		                      $.extend(true, {}, options, {
+		                          xaxis: { min: ranges.xaxis.from, max: ranges.xaxis.to }
+		                      }));
+
+		        // don't fire event on the overview to prevent eternal loop
+		        overview.setSelection(ranges, true);
+		    });
+
+		    $("#overview").bind("plotselected", function (event, ranges) {
+		        plot.setSelection(ranges);
+		    });
+		
+		}
+	});
+
+
+});
+</script> 
+
 
 </html>
