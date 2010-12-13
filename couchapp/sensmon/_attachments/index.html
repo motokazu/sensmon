@@ -1,17 +1,27 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Graph sensmon</title>
+    <title>sensmon Graph</title>
     <link rel="stylesheet" href="style/main.css" type="text/css">
   </head>
   <body>
-    <h1>Graph Sensmon.</h1>
+    <h1>sensmo Graph.</h1>
+	<a href="/sensmon/_design/sensmon-calendar/index.html">Calendar</a>
     <hr/>
+	<table border="0">
+		<tr><td>
 <div id="placeholder" style="width:800px;height:300px;"></div> 
-    
 Overview: <div id="overview" style="margin-left:40px;margin-top:20px;width:400px;height:50px"></div> 
-	<hr>
+		</td><td>
+			Total entries : <span id="total_rows">loading...</span><br>
+			max temperature : <span id="maxtemperature"> ? </span><br>
+			min temperature : <span id="mintemperature"> ? </span><br>
+			max solar power : <span id="maxsolarpower"> ? </span><br>
+			min solar power : <span id="minsolarpower"> ? </span><br>
+		</td></tr>
+	</table>
   </body>
+
   <script src="/_utils/script/json2.js"></script>
   <script src="/_utils/script/jquery.js?1.3.1"></script>
   <script src="/_utils/script/jquery.couch.js?0.9.0"></script>
@@ -30,12 +40,34 @@ $(function () {
 		dataType: 'json',
 		url: "/sensmon/_design/sensmon/_view/all",
 		success: function(data){
+			var maxtemp = {"value":0,"date":"-/-"};
+			var mintemp = {"value":100,"date":"-/-"};
+			var maxsol = {"value":0,"date":"-/-"};
+			var minsol = {"value":100,"date":"-/-"};
+			
 			$.each(data.rows, function(id, val){
+				// temperature
 				var tmp = [val.value.stime, val.value.temperature];
 				tempd.push(tmp);
+				maxtemp =
+					mathmax(val.value.temperature,maxtemp,val.value.stime);
+				mintemp = 
+					mathmin(val.value.temperature,mintemp,val.value.stime);
+					
+				// solarpower
 				var sol = [val.value.stime, val.value.solarpower];
 				solard.push(sol);
+				maxsol =
+					mathmax(val.value.solarpower,maxsol,val.value.stime);
+				minsol = 
+					mathmin(val.value.solarpower,minsol,val.value.stime);
 			});
+			
+			$("#total_rows").text(data.total_rows);
+			$("#maxtemperature").text(maxtemp.value+"("+maxtemp.date+")");
+			$("#mintemperature").text(mintemp.value+"("+mintemp.date+")");
+			$("#maxsolarpower").text(maxsol.value+"V ("+maxsol.date+")");
+			$("#minsolarpower").text(minsol.value+"V ("+minsol.date+")");
 			
 			// fix from sec to millisec
 			for(var i = 0; i < tempd.length ; i ++ ) {
@@ -45,7 +77,37 @@ $(function () {
 			
 			datasets.push({"label":"Temperature",data:tempd, yaxis: 1 });
 			datasets.push({"label":"Solarpower",data:solard, yaxis: 2 });
+			
+			//
+			function mathmax(val, originalval, stime){
+				var ret = originalval;
+				if(val>originalval.value){
+					var d = new Date();
+					d.setTime(stime * 1000);
+					ret.value = val;
+					ret.date =
+					 d.getFullYear()+"/"+d.getMonth()+"/"+d.getDate()+" "
+					 +d.getHours()+":"+d.getMinutes()+":"+d.getSeconds();
+				}
+				
+				return ret;
+			}
+			
+			function mathmin(val, originalval, stime){
+				var ret = originalval;
+				if(val<originalval.value){
+					var d = new Date();
+					d.setTime(stime * 1000);
+					ret.value = val;
+					ret.date = 
+					 d.getFullYear()+"/"+d.getMonth()+"/"+d.getDate()+" "
+					 +d.getHours()+":"+d.getMinutes()+":"+d.getSeconds();
 
+				}
+				
+				return ret;
+			}
+			
 		    // helper for returning the weekends in a period
 		    function weekendAreas(axes) {
 		        var markings = [];
@@ -97,7 +159,6 @@ $(function () {
 		                      $.extend(true, {}, options, {
 		                          xaxis: { min: ranges.xaxis.from, max: ranges.xaxis.to }
 		                      }));
-
 		        // don't fire event on the overview to prevent eternal loop
 		        overview.setSelection(ranges, true);
 		    });
